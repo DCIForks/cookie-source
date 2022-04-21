@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Static Document</title>
+
+</head>
+<body>
+  <h1>Cookies Set!</h1> 
+  <img src="images/web_beacon.png">
+  <!-- https://unsplash.com/photos/g-LrCv5yS0I -->
+  <p id="cookie"></p>
+  
+  <script>
+    document.getElementById("cookie").innerText = `document.cookie: ${document.cookie || '""'}`
+  </script>
+</body>
+</html>
