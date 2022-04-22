@@ -1,51 +1,143 @@
+/**
+ * Cookie-Source is a simple Express server which serves a
+ * number of cookies:
+ *
+ *   { sameSite: strict }
+ *   { sameSite: lax }
+ *   { sameSite: none, secure: true }
+ *   { sameSite: none, secure: true, expires: <tomorrow> }
+ *   { sameSite: 'none', secure: true, httpOnly: true }
+ *
+ * When the page at "/" is visited, all these cookies will be set.
+ * When a page on a different host server shows the web_beacon.png
+ * image from this site, the three { sameSite: none, ... } cookies
+ * will be set.
+ *
+ * Deployment
+ * ——————————
+ * This app is deployed at https://cookie-source.herokuapp.com/
+ * Use `heroku logs -n 20` to see the last 20 lines of the logs
+ * created on the Heroku server.
+ *
+ * Testing Locally
+ * ———————————————
+ * You can also serve the page locally using:
+ *
+ *   npm start # from the cookie-source directory
+ * OR
+ *   heroku local web
+ *   // This will use port 5000
+ * OR
+ *   npm run start:source # from the parent directory
+ *
+ * When testing locally, an HTTPS server will be created, using
+ * certificates contained in the `https` directory in the same\
+ * folder as this script.
+ *
+ * Viewing Cookies
+ * ———————————————
+ * When you visit the page, use the Developer Tools Inspector to
+ * view the cookies that have been set for third-party domains:
+ *
+ * Chrome: Dev Tools > Application > Storage > Cookies
+ * Firefox: Dev Tools > Storage > Cookies
+ */
+
 require('dotenv').config()
-const express = require('express')
+let express
+  , app
 const cookieParser = require('cookie-parser')
 
-const app = express()
-const PORT = process.env.PORT || 4444
+const HEROKU_PORT = "5000"
+const DEFAULT_PORT = "5001"
+const PORT = process.env.PORT || DEFAULT_PORT
+
+if ([HEROKU_PORT, DEFAULT_PORT].includes(PORT)) {
+  // Create an HTTPS server running on localhost
+  const https = require('./https/server')
+
+  const HOST = process.env.HOST || "localhost"
+  const NAME = process.env.NAME || "Secure"
+  ;({ express, app } = https(HOST, PORT, NAME))
 
 
-app.listen(PORT, () => console.log(`Listening on port ${PORT}`))
+} else {
+  // Assume that this app is running on Heroku
+  express = require('express')
+  app = express()
+
+  app.listen(PORT, () => {
+    console.log(`Heroku port: ${PORT}`)
+  })
+}
+
+
+const treatCookies = (request, response, next) => {
+  const url = request.originalUrl
+
+  if (["/", "/favicon.ico"].includes(url)) {
+    console.log(`No cookies for "${url}"`)
+
+  } else {
+    console.log("request.cookies:", request.cookies);
+    console.log(`Sending cookies for: "${url}"`);
+    sendCookies(request, response)
+  }
+
+  return next()
+}
+
+
+const sendCookies = (request, response) => {
+  const convertDateToString = (date) => {
+    const time = [
+      date.getFullYear(),
+      date.getMonth() + 1,
+      date.getDate(),
+      date.getHours(),
+      date.getMinutes(),
+      date.getSeconds()
+    ].map( number => number < 10 ? "0"+number : number)
+
+    return time.slice(0, 3).join("-")
+         + " at "
+         + time.slice(3).join(":")
+  }
+
+  const hostName = request.hostname
+  const dateNow  = convertDateToString(new Date())
+  const tomorrow = new Date(Date.now() + 1000 * 60 * 60 * 24)
+
+  response
+  // Cookie only available when request url === host url
+  .cookie("key", "private", {sameSite: 'strict'})
+
+  // Cookie available from request url if navigating to host url
+  .cookie("property", "selective", {sameSite: 'lax'})
+
+  // Cookies available from any request url
+  .cookie("source", hostName, {sameSite: 'none', secure: true})
+  .cookie("since", dateNow, {
+    sameSite: 'none',
+    secure: true,
+    expires: tomorrow
+  })
+  .cookie("secret", "httpOnly", {
+    sameSite: 'none',
+    secure: true,
+    httpOnly: true
+  })
+}
 
 
 // request.cookies is undefined if cookieParser() is not used
 app.use(cookieParser())
-
-
-const logURL = (request, response, next) => {
-  const url = request.originalUrl
-
-  if (!["/", "/favicon.ico"].includes(url)) {
-    console.log("originalUrl:", url);
-  }
-  next()
-}
-
-const setCookie = (request, response, next) => {
-  if (request.originalUrl === "/favicon.ico") {
-    // Browsers will make two requests to the server:
-    // 1. Get the page
-    // 2. Get the favicon
-    console.log("favicon requested")
-  }
-  
-  console.log("request.cookies:", request.cookies);
-  response
-  .cookie("key", "private", {sameSite: 'strict'})
-  .cookie("property", "selective", {sameSite: 'lax'})
-  .cookie("shared", "public", {sameSite: 'none', secure: true})
-  
-  next()
-}
-
-
-app.get("*", logURL, setCookie)
+app.get("*", treatCookies)
 // Use express.static() to serve the content if it exists...
 app.use(express.static('public'))
 
 app.get('/hello', (req,res)=>{
-  res.send("Hello from the cookie-share express server.")
+  res.send("Hello from the cookie-source express server.")
 })
 
 // ...but if not, a 404 Not Found will be served

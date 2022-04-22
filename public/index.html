@@ -4,17 +4,53 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Static Document</title>
+  <title>Cookie Source</title>
+  <style>
+    body {
+      background-color: #000;
+      margin: 0;
+    }
 
+    main {
+      max-width: 35em;
+      min-height: 100vh;
+      text-align: center;
+      background-color: #fff;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0;
+      padding-top: 0.5em;
+    }
+  </style>
 </head>
 <body>
-  <h1>Cookies Set!</h1> 
-  <img src="images/web_beacon.png">
-  <!-- https://unsplash.com/photos/g-LrCv5yS0I -->
-  <p id="cookie"></p>
-  
+  <main>
+    <h1>Cookie Source</h1>
+    <figure>
+      <img
+        src="images/web_beacon.png"
+        alt="web beacon"
+      >
+      <!-- https://unsplash.com/photos/g-LrCv5yS0I -->
+      <figcaption>
+        <h3>
+          Web Beacon image on this host server
+        </h3>
+        <code>
+          images/web_beacon.png
+        </code>
+      </figcaption>
+    </figure>
+    <p id="cookie"></p>
+  </main>
+
   <script>
-    document.getElementById("cookie").innerText = `document.cookie: ${document.cookie || '""'}`
+    const cookies = decodeURIComponent(document.cookie) || '""';
+
+    document.getElementById("cookie")
+            .innerText = `document.cookie: ${cookies}`
   </script>
 </body>
 </html>

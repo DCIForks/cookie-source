@@ -1,6 +1,7 @@
 {
-  "name": "cookie-share",
+  "name": "cookie-source",
   "version": "1.0.0",
+  "description": "Demo of an HTTPS site which sets cross-site cookies when an image is requested from the local server.",
   "main": "index.js",
   "scripts": {
     "start": "nodemon index"
@@ -8,7 +9,9 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "engines": {
+    "node": "16.x"
+  },
   "dependencies": {
     "cookie-parser": "^1.4.6",
     "dotenv": "^16.0.0",
