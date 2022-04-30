@@ -8,10 +8,11 @@
  *   { sameSite: none, secure: true, expires: <tomorrow> }
  *   { sameSite: 'none', secure: true, httpOnly: true }
  *
- * When the page at "/" is visited, all these cookies will be set.
- * When a page on a different host server shows the web_beacon.png
- * image from this site, the three { sameSite: none, ... } cookies
- * will be set.
+ * When the page at "/" is visited, all these cookies will be
+ * sent back to the server. When a page on a different host
+ * server shows just the web_beacon.png image from this site,
+ * the browser will nend only the three { sameSite: none, ... }
+ * cookies.
  *
  * Deployment
  * ——————————
@@ -43,102 +44,133 @@
  * Firefox: Dev Tools > Storage > Cookies
  */
 
-require('dotenv').config()
-let express
-  , app
-const cookieParser = require('cookie-parser')
+require("dotenv").config();
+let express, app;
+const cookieParser = require("cookie-parser");
+const cookieLogger = require("./cookieLogger");
 
-const HEROKU_PORT = "5000"
-const DEFAULT_PORT = "5001"
-const PORT = process.env.PORT || DEFAULT_PORT
+const HEROKU_PORT = "5000"; // process.env for heroku local web
+const DEFAULT_PORT = "5000"; // used by npm start
+const PORT = process.env.PORT || DEFAULT_PORT;
 
 if ([HEROKU_PORT, DEFAULT_PORT].includes(PORT)) {
   // Create an HTTPS server running on localhost
-  const https = require('./https/server')
+  const https = require("./https/server");
 
-  const HOST = process.env.HOST || "localhost"
-  const NAME = process.env.NAME || "Secure"
-  ;({ express, app } = https(HOST, PORT, NAME))
+  const HOST = process.env.HOST || "localhost";
+  const NAME = process.env.NAME || "Secure";
 
-
+  ({ express, app } = https(HOST, PORT, NAME));
 } else {
   // Assume that this app is running on Heroku
-  express = require('express')
-  app = express()
+  express = require("express");
+  app = express();
 
   app.listen(PORT, () => {
-    console.log(`Heroku port: ${PORT}`)
-  })
+    console.log(`Heroku port: ${PORT}`);
+  });
 }
 
+const convertDateToString = (date = new Date()) => {
+  const time = [
+    date.getFullYear(),
+    date.getMonth() + 1,
+    date.getDate(),
+    date.getHours(),
+    date.getMinutes(),
+    date.getSeconds(),
+  ].map((number) => (number < 10 ? "0" + number : number));
+
+  return time.slice(3).join(":") + " on " + time.slice(0, 3).join("-");
+};
 
 const treatCookies = (request, response, next) => {
-  const url = request.originalUrl
+  const url = request.originalUrl;
+  const protocol = request.protocol;
+  const host = request.headers.host;
+  const port = request.port;
+
+  const now = convertDateToString();
+  console.log(`******
+Request for
+  ${protocol}://${host}${url}
+at ${now}
+******`);
 
   if (["/", "/favicon.ico"].includes(url)) {
-    console.log(`No cookies for "${url}"`)
-
+    console.log(`No cookies for "${url}"`);
   } else {
     console.log("request.cookies:", request.cookies);
     console.log(`Sending cookies for: "${url}"`);
-    sendCookies(request, response)
+
+    sendCookies(request, response, now);
+
+    cookieLogger(response);
   }
 
-  return next()
-}
+  return next();
+};
 
-
-const sendCookies = (request, response) => {
-  const convertDateToString = (date) => {
-    const time = [
-      date.getFullYear(),
-      date.getMonth() + 1,
-      date.getDate(),
-      date.getHours(),
-      date.getMinutes(),
-      date.getSeconds()
-    ].map( number => number < 10 ? "0"+number : number)
-
-    return time.slice(0, 3).join("-")
-         + " at "
-         + time.slice(3).join(":")
-  }
-
-  const hostName = request.hostname
-  const dateNow  = convertDateToString(new Date())
-  const tomorrow = new Date(Date.now() + 1000 * 60 * 60 * 24)
+const sendCookies = (request, response, now) => {
+  const referer = request.get("Referer");
+  const hostName = request.hostname;
+  const tomorrow = new Date(Date.now() + 1000 * 60 * 60 * 24);
 
   response
-  // Cookie only available when request url === host url
-  .cookie("key", "private", {sameSite: 'strict'})
+    // Cookie only available when request url === host url
+    .cookie(
+      "key",
+      `STRICT: set at ${now}`,
+      { sameSite: "strict" }
+    )
 
-  // Cookie available from request url if navigating to host url
-  .cookie("property", "selective", {sameSite: 'lax'})
+    // Cookie available from request url if navigating to host url
+    .cookie(
+      "property",
+      `LAX: set at ${now}`,
+      { sameSite: "lax" }
+    )
 
-  // Cookies available from any request url
-  .cookie("source", hostName, {sameSite: 'none', secure: true})
-  .cookie("since", dateNow, {
-    sameSite: 'none',
-    secure: true,
-    expires: tomorrow
-  })
-  .cookie("secret", "httpOnly", {
-    sameSite: 'none',
-    secure: true,
-    httpOnly: true
-  })
-}
-
+    // Cookies available from any request url
+    .cookie(
+      "source",
+      `NONE: ${hostName} set at ${now}`,
+      { sameSite: "none", secure: true }
+     )
+    .cookie(
+      "referer",
+      `NONE: ${referer} (NONE) set at ${now}`,
+      { sameSite: "none", secure: true }
+    )
+    .cookie(
+      "24-hours",
+      `NONE: from ${now} `,
+      {
+        sameSite: "none",
+        secure: true,
+        expires: tomorrow,
+      }
+    )
+    .cookie(
+      "secret",
+      `httpOnly + NONE set at ${now}`,
+      {
+        sameSite: "none",
+        secure: true,
+        httpOnly: true,
+      }
+    );
+};
 
 // request.cookies is undefined if cookieParser() is not used
-app.use(cookieParser())
-app.get("*", treatCookies)
+app.use(cookieParser());
+app.get("*", treatCookies);
 // Use express.static() to serve the content if it exists...
-app.use(express.static('public'))
+app.use(express.static("public"));
 
-app.get('/hello', (req,res)=>{
-  res.send("Hello from the cookie-source express server.")
-})
+app.get("/hello", (req, res) => {
+  res.send("Hello from the cookie-source express server.");
+});
 
 // ...but if not, a 404 Not Found will be served
-app.get("*", (request, response) => response.sendStatus(404))
+app.get("*", (request, response) => response.sendStatus(404));
