@@ -88,12 +88,14 @@ const treatCookies = (request, response, next) => {
   const url = request.originalUrl;
   const protocol = request.protocol;
   const host = request.headers.host;
-  const port = request.port;
-
+  const referer = request.get("Referer");
   const now = convertDateToString();
+
   console.log(`******
 Request for
   ${protocol}://${host}${url}
+from
+  ${referer}
 at ${now}
 ******`);
 
@@ -103,7 +105,7 @@ at ${now}
     console.log("request.cookies:", request.cookies);
     console.log(`Sending cookies for: "${url}"`);
 
-    sendCookies(request, response, now);
+    sendCookies(request, response, referer, now);
 
     cookieLogger(response);
   }
@@ -111,8 +113,7 @@ at ${now}
   return next();
 };
 
-const sendCookies = (request, response, now) => {
-  const referer = request.get("Referer");
+const sendCookies = (request, response, referer, now) => {
   const hostName = request.hostname;
   const tomorrow = new Date(Date.now() + 1000 * 60 * 60 * 24);
 
