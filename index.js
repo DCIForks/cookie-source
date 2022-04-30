@@ -100,7 +100,10 @@ at ${now}
 ******`);
 
   if (["/", "/favicon.ico"].includes(url)) {
-    console.log(`No cookies for "${url}"`);
+    // For simplicity, neither set nor display cookies
+    // if the request is not for the web_beacon.jpg file
+    console.log(`No cookies for "${url}"`)
+
   } else {
     console.log("request.cookies:", request.cookies);
     console.log(`Sending cookies for: "${url}"`);
@@ -108,6 +111,7 @@ at ${now}
     sendCookies(request, response, referer, now);
 
     cookieLogger(response);
+    console.log("******\n")
   }
 
   return next();
@@ -140,7 +144,7 @@ const sendCookies = (request, response, referer, now) => {
      )
     .cookie(
       "referer",
-      `NONE: ${referer} (NONE) set at ${now}`,
+      `NONE: ${referer} set at ${now}`,
       { sameSite: "none", secure: true }
     )
     .cookie(
@@ -154,7 +158,7 @@ const sendCookies = (request, response, referer, now) => {
     )
     .cookie(
       "secret",
-      `httpOnly + NONE set at ${now}`,
+      `NONE + httpOnly: set at ${now}`,
       {
         sameSite: "none",
         secure: true,
